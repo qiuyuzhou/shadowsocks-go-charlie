@@ -1,0 +1,9 @@
+{
+  "listen": [":8388"],
+  "method": "aes-256-cfb",
+  "password": "shared_secret",
+  "tokens": {
+    "charlie": "0123456789abcdefg!"
+  },
+  "timeout": 300
+}
