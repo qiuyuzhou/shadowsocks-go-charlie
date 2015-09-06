@@ -116,6 +116,10 @@ func main() {
             Name: "debug,d",
             Usage: "Show debug log",
         },
+        cli.StringFlag{
+            Name: "config,c",
+            Usage: "Run with the config file",
+        },
     }
 
     app.Action = func(c *cli.Context) {
@@ -123,30 +127,39 @@ func main() {
             log.SetLevel(log.DebugLevel)
         }
 
-        config.LocalAddr = c.GlobalString("listen")
-        servers := c.GlobalStringSlice("server")
-        if len(servers) == 0 {
-            log.Error("Give at least one server url by flag --server")
-            os.Exit(1)
-        }
-
-        serverEpConfigs := make([]*ServerEndpointConfig, 0, 5)
-        {
-            hasError := false
-            for _, v := range servers {
-                sc, err := parseSSPUrl(v)
-                if err != nil {
-                    log.Error(err)
-                    hasError = true
-                } else {
-                    serverEpConfigs = append(serverEpConfigs, sc)
-                }
-            }
-            if hasError {
+        if c.GlobalString("config") != "" {
+            var err error
+            config, err = ParseConfig(c.GlobalString("config"))
+            if err != nil {
+                log.Error(err)
                 os.Exit(1)
             }
+        } else {
+            config.LocalAddr = c.GlobalString("listen")
+            servers := c.GlobalStringSlice("server")
+            if len(servers) == 0 {
+                log.Error("Give at least one server url by flag --server")
+                os.Exit(1)
+            }
+
+            serverEpConfigs := make([]*ServerEndpointConfig, 0, 5)
+            {
+                hasError := false
+                for _, v := range servers {
+                    sc, err := parseSSPUrl(v)
+                    if err != nil {
+                        log.Error(err)
+                        hasError = true
+                    } else {
+                        serverEpConfigs = append(serverEpConfigs, sc)
+                    }
+                }
+                if hasError {
+                    os.Exit(1)
+                }
+            }
+            config.Servers = serverEpConfigs
         }
-        config.Servers = serverEpConfigs
 
         run(config.LocalAddr)
     }
