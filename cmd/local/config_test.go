@@ -19,3 +19,11 @@ func TestParse(t *testing.T) {
     a.Equal(t, ep.Address, "192.168.1.1:8388", "wrong host @ ep0")
     a.Equal(t, ep.Method, "aes-256-cfb", "wrong method @ ep0")
 }
+
+func TestParseUrl(t *testing.T) {
+    ep, err := parseSSPUrl("ssp://aes-256-cfb:shared_secret@127.0.0.1:8388/charlie/0123456789abcdefg/")
+    a.Nil(t, err)
+    a.Equal(t, ep.Method, "aes-256-cfb", "wrong method")
+    a.Equal(t, ep.Token, "charlie", "wrong token")
+    a.Equal(t, ep.TokenSecret, "0123456789abcdefg", "wrong token secret")
+}

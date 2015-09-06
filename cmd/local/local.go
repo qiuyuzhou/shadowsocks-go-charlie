@@ -3,10 +3,8 @@ import (
     "net"
     log "github.com/Sirupsen/logrus"
     ss "bitbucket.org/qiuyuzhou/shadowsocks/core"
-    "time"
-    "flag"
+    "github.com/codegangsta/cli"
     "os"
-    "fmt"
 )
 
 func init() {
@@ -21,7 +19,7 @@ var config = &Config{}
 
 func createServerConn(rawaddr []byte, addr string) (remote *ss.Conn, err error) {
     ep := config.Servers[0]
-    remote, err = ss.DialWithRawAddr(rawaddr, ep.Address, &ep)
+    remote, err = ss.DialWithRawAddr(rawaddr, ep.Address, ep)
     return
 }
 
@@ -93,68 +91,65 @@ func run(listenAddr string) {
 }
 
 func main() {
-    var configFile string
-    var cmdConfig = &Config{
-        Servers:make([]ServerEndpointConfig, 1)}
-    var printVer, help, debug bool
-    var err error
+    app := cli.NewApp()
+    app.Name = "ssplocal"
+    app.Usage = "Start a socks5 proxy which forward connections to a shadowsocks pro server."
+    app.Version = "1.0pre"
+    app.Author = "Charlie"
 
-    flag.BoolVar(&printVer, "version", false, "print version")
-    flag.StringVar(&configFile, "c", "config.json", "specify config file")
-    flag.StringVar(&cmdConfig.LocalAddr, "l", "127.0.0.1:1080", "local socks5 server address")
-    flag.StringVar(&cmdConfig.Servers[0].Address, "s", "", "server address")
-    flag.StringVar(&cmdConfig.Servers[0].Method, "m", "", "encryption method, default: aes-256-cfb")
-    flag.StringVar(&cmdConfig.Servers[0].Password, "p", "", "password")
-    flag.StringVar(&cmdConfig.Servers[0].Token, "t", "", "Token")
-    flag.StringVar(&cmdConfig.Servers[0].TokenSecret, "k", "", "Token secret")
-    flag.BoolVar(&help, "h", false, "print usage")
-    flag.BoolVar(&debug, "debug", false, "print debug message")
-
-    flag.Parse()
-    if help {
-        ss.PrintVersion()
-        fmt.Println("Usage:")
-        flag.PrintDefaults()
-        os.Exit(0)
-    }
-    if printVer {
-        ss.PrintVersion()
-        os.Exit(0)
-    }
-    if debug {
-        log.SetLevel(log.DebugLevel)
+    app.Flags = []cli.Flag{
+        cli.StringFlag{
+            Name:  "listen,l",
+            Value: "127.0.0.1:1080",
+            Usage: "Local Socks5 proxy server listen address",
+        },
+        cli.IntFlag{
+            Name:  "timeout,t",
+            Value: 350,
+            Usage: "Network timeout in minisecond",
+        },
+        cli.StringSliceFlag{
+            Name: "server,s",
+            Usage: "specify ssp server with url format. \n\tExample: ssp://method:password@host/token/token_secret/",
+        },
+        cli.BoolFlag{
+            Name: "debug,d",
+            Usage: "Show debug log",
+        },
     }
 
-    exists, _ := ss.IsFileExists(configFile)
+    app.Action = func(c *cli.Context) {
+        if c.GlobalBool("debug") {
+            log.SetLevel(log.DebugLevel)
+        }
 
-    if exists {
-        config, err = ParseConfig(configFile)
-        if err != nil {
-            if !os.IsNotExist(err) {
-                fmt.Fprintf(os.Stderr, "error reading %s: %v\n", configFile, err)
+        config.LocalAddr = c.GlobalString("listen")
+        servers := c.GlobalStringSlice("server")
+        if len(servers) == 0 {
+            log.Error("Give at least one server url by flag --server")
+            os.Exit(1)
+        }
+
+        serverEpConfigs := make([]*ServerEndpointConfig, 0, 5)
+        {
+            hasError := false
+            for _, v := range servers {
+                sc, err := parseSSPUrl(v)
+                if err != nil {
+                    log.Error(err)
+                    hasError = true
+                } else {
+                    serverEpConfigs = append(serverEpConfigs, sc)
+                }
+            }
+            if hasError {
                 os.Exit(1)
             }
         }
-        log.WithField("File", configFile).Infof("use config file: %v.", configFile)
-        log.Debugf("%v", config)
-    } else {
-        config = cmdConfig
+        config.Servers = serverEpConfigs
+
+        run(config.LocalAddr)
     }
-
-    if config.Servers[0].Method == "" {
-        config.Servers[0].Method = "aes-256-cfb"
-    }
-
-    for i := 0; i < len(config.Servers); i++ {
-        if ok, err := config.Servers[i].Validate(); !ok {
-            if err != nil {
-                log.Error(err)
-            }
-            os.Exit(1)
-        }
-    }
-
-    run(config.LocalAddr)
-
+    app.Run(os.Args)
 }
 

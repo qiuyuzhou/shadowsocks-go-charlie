@@ -6,6 +6,9 @@ import (
     "os"
     "fmt"
     ss "bitbucket.org/qiuyuzhou/shadowsocks/core"
+    "errors"
+    "net/url"
+    "strings"
 )
 
 type ServerEndpointConfig struct {
@@ -21,7 +24,7 @@ type ServerEndpointConfig struct {
 type Config struct {
     LocalAddr   string      `json:"local_addr"`
 
-    Servers []ServerEndpointConfig `json:"servers"`
+    Servers []*ServerEndpointConfig `json:"servers"`
 }
 
 func ParseConfig(path string) (config *Config, err error) {
@@ -88,3 +91,40 @@ func (c *ServerEndpointConfig)Validate() (bool, error) {
 
     return valid, err
 }
+
+var (
+    errNotFoundPasswordInUrl = errors.New("Not found password in SSP url")
+    errNotFoundToeknInUrl = errors.New("Not found valid token info in SSP url")
+)
+
+func parseSSPUrl(rawurl string)(*ServerEndpointConfig, error) {
+    u, err := url.Parse(rawurl)
+    if err != nil {
+        return nil, err
+    }
+
+    password, ok:= u.User.Password()
+    if !ok {
+        return nil, errNotFoundPasswordInUrl
+    }
+
+    token := strings.SplitN(strings.Trim(u.Path, "/"), "/", 2)
+    if len(token) != 2 {
+        return nil, errNotFoundToeknInUrl
+    }
+
+    c := &ServerEndpointConfig{
+        Address: u.Host,
+        Method: u.User.Username(),
+        Password: password,
+        Token: token[0],
+        TokenSecret: token[1],
+    }
+
+    if _, err = c.Validate(); err != nil {
+        return nil, err
+    }
+
+    return c, nil
+}
+
