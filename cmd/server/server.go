@@ -4,12 +4,11 @@ import (
     log "github.com/Sirupsen/logrus"
     "os"
     ss "bitbucket.org/qiuyuzhou/shadowsocks/core"
-    "flag"
-    "fmt"
     "syscall"
     "sync"
     "sync/atomic"
     "os/signal"
+    "github.com/codegangsta/cli"
 )
 
 func init() {
@@ -125,51 +124,48 @@ func run() {
 }
 
 func main() {
-    var configFile string
-    var printVer, help, debug bool
-    var err error
+    app := cli.NewApp()
+    app.Name = "sspserver"
+    app.Usage = "Start a shadowsocks pro server."
+    app.Version = "1.0pre"
+    app.Author = "Charlie"
 
-    flag.BoolVar(&printVer, "version", false, "print version")
-    flag.StringVar(&configFile, "c", "config.json", "specify config file")
-    flag.BoolVar(&help, "h", false, "print usage")
-    flag.BoolVar(&debug, "debug", false, "print debug message")
-
-    flag.Parse()
-    if help {
-        ss.PrintVersion()
-        fmt.Println("Usage:")
-        flag.PrintDefaults()
-        os.Exit(0)
-    }
-    if printVer {
-        ss.PrintVersion()
-        os.Exit(0)
-    }
-    if debug {
-        log.SetLevel(log.DebugLevel)
+    app.Flags = []cli.Flag{
+        cli.BoolFlag{
+            Name: "debug,d",
+            Usage: "Show debug log",
+        },
+        cli.StringFlag{
+            Name: "config,c",
+            Usage: "Run with the config file",
+        },
     }
 
-    exists, _ := ss.IsFileExists(configFile)
+    app.Action = func(c *cli.Context) {
+        if c.GlobalBool("debug") {
+            log.SetLevel(log.DebugLevel)
+        }
 
-    if exists {
-        config, err = ParseConfig(configFile)
-        if err != nil {
-            if !os.IsNotExist(err) {
-                fmt.Fprintf(os.Stderr, "error reading %s: %v\n", configFile, err)
+        if c.GlobalString("config") != "" {
+            var err error
+            config, err = ParseConfig(c.GlobalString("config"))
+            if err != nil {
+                log.Error(err)
                 os.Exit(1)
             }
+            if ok, err := config.Validate(); !ok {
+                if err != nil {
+                    log.Printf("Error: %v", err)
+                }
+                os.Exit(1)
+            }
+        } else {
+            log.Error("Must specify config file.")
+            os.Exit(1)
         }
-    } else {
-        fmt.Fprintln(os.Stderr, "Must specify config file.")
-        os.Exit(1)
-    }
-    if ok, err := config.Validate(); !ok {
-        if err != nil {
-            log.Printf("Error: %v", err)
-        }
-        os.Exit(1)
-    }
 
+        run()
+    }
     go waitSignal()
-    run()
+    app.Run(os.Args)
 }
