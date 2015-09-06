@@ -36,13 +36,13 @@ func handleConnection(conn net.Conn) {
         log.Warning("socks handshake:", err)
         return
     }
-//    log.Debug("socks5 connection handshaked!")
+    //    log.Debug("socks5 connection handshaked!")
     rawaddr, addr, err := getRequest(conn)
     if err != nil {
         log.Warning("error getting request:", err)
         return
     }
-//    log.Debugf("socks5 connection get request: %v", addr)
+    //    log.Debugf("socks5 connection get request: %v", addr)
 
     remote, err := createServerConn(rawaddr, addr)
     if err != nil {
@@ -66,12 +66,12 @@ func handleConnection(conn net.Conn) {
 
     log.WithField("addr", addr).Infof("Proxy connection to %v", addr)
 
-//    log.Debugf("piping %s<->%s", conn.RemoteAddr(), remote.RemoteAddr())
+    //    log.Debugf("piping %s<->%s", conn.RemoteAddr(), remote.RemoteAddr())
 
     go ss.PipeThenClose(conn, remote)
     ss.PipeThenClose(remote, conn)
     closed = true
-//    log.Debug("closed connection to", addr)
+    //    log.Debug("closed connection to", addr)
 }
 
 func run(listenAddr string) {
@@ -132,6 +132,18 @@ func main() {
             config, err = ParseConfig(c.GlobalString("config"))
             if err != nil {
                 log.Error(err)
+                os.Exit(1)
+            }
+
+            hasError := false
+            for _, ep := range config.Servers {
+                valid, err := ep.Validate()
+                hasError = hasError || !valid
+                if err != nil {
+                    log.Error(err)
+                }
+            }
+            if hasError {
                 os.Exit(1)
             }
         } else {
