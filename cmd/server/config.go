@@ -3,7 +3,6 @@ import (
     "os"
     "io/ioutil"
     "encoding/json"
-    "fmt"
     ss "bitbucket.org/qiuyuzhou/shadowsocks/core"
     "errors"
     log "github.com/Sirupsen/logrus"
@@ -13,8 +12,9 @@ type Config struct {
     Listen []string     `json:"listen"`
     Method string       `json:"method"`
     Password string     `json:"password"`
-    Tokens map[string]string    `json:"tokens"`
     Timeout uint        `json:"timeout"`
+
+    TokensPlugins map[string]json.RawMessage `json:"tokens_plugins"`
 
     headerCipher *ss.Cipher
 }
@@ -66,13 +66,6 @@ func (c *Config)Validate() (bool, error) {
     if c.Method == "" {
         log.Error("Must specify method for server")
         valid = false
-    }
-
-    for key, _:= range c.Tokens {
-        if len(key) > ss.TOKEN_SIZE {
-            log.WithField("token", key).Errorf(fmt.Sprintf("Token lenght must be less equal %v", ss.TOKEN_SIZE))
-            valid = false
-        }
     }
 
     if !valid {

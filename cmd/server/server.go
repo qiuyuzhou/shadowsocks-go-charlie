@@ -20,6 +20,7 @@ func init() {
 }
 
 var config *Config
+var tokensManager *TokensManager
 
 var connCount int32
 
@@ -27,7 +28,7 @@ func handleConnection(rawConn net.Conn) {
     var conn *ss.Conn
     var err error
     closed := false
-    if conn, err = ss.NewServerConn(rawConn, &TokensManager{Config:config}); err != nil {
+    if conn, err = ss.NewServerConn(rawConn, tokensManager); err != nil {
         return
     }
     atomic.AddInt32(&connCount, 1)
@@ -162,6 +163,14 @@ func main() {
         } else {
             log.Error("Must specify config file.")
             os.Exit(1)
+        }
+        {
+            var err error
+            tokensManager, err = NewTokensManager(config)
+            if err != nil {
+                log.Errorf("Initial TokensManager failed with error: %v", err)
+                os.Exit(1)
+            }
         }
 
         run()
