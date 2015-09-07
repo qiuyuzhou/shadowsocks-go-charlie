@@ -7,7 +7,9 @@
       "charlie": "0123456789abcdefg!"
     },
     "remote": {
-      "remote_server_url": "http://127.0.0.1:8000/shadowsockspro/api/tokens/%v/"
+      "remote_server_url": "http://127.0.0.1:8000/shadowsockspro/api/tokens/%v/",
+      "cache_timeout_seconds": 300,
+      "cache_tick_seconds": 30
     }
   },
   "timeout": 300

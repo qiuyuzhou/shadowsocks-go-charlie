@@ -20,6 +20,8 @@ type RemoteTokensPluginQueryRequest struct {
 
 type RemoteTokensPluginConfig struct {
     RemoteServerUrl string      `json:"remote_server_url"`
+    CacheTimeoutSeconds time.Duration `json:"cache_timeout_seconds"`
+    CacheTickSeconds time.Duration    `json:"cache_tick_seconds"`
 }
 
 type RemoteTokensPlugin struct {
@@ -37,7 +39,7 @@ func (self *RemoteTokensPlugin) Init(rawJson json.RawMessage) (error) {
         return err
     }
 
-    self.tokensCache = cache.New(5*time.Minute, 30*time.Second)
+    self.tokensCache = cache.New(self.config.CacheTimeoutSeconds*time.Second, self.config.CacheTickSeconds*time.Second)
 
     self.pendingRequests = make(map[string][]chan string)
 
@@ -106,7 +108,7 @@ func (self *RemoteTokensPlugin) GetTokenSecret(token string) (string, error) {
 
     request := &RemoteTokensPluginQueryRequest{Token:token}
     self.requestsChan <- request
-    tokenSecret := <- request.resultChan
+    tokenSecret := <-request.resultChan
     if tokenSecret == "" {
         return tokenSecret, errNotFoundToken
     }
