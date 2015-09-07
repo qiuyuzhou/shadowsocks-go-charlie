@@ -49,7 +49,10 @@ func (self *RemoteTokensPlugin) GetTokenSecret(token string) (string, error) {
         return "", err
     }
     if resp.Status() == 200 {
-        log.Debug(t)
+        log.WithFields(log.Fields{
+            "token": t.Token,
+            "token_serect": t.TokenSecret,
+        }).Debugf("Get token secret from remote")
         self.tokensCache.Add(t.Token, t.TokenSecret, 0)
         return t.TokenSecret, nil
     }
