@@ -159,7 +159,15 @@ func (c *Conn) HandShake() (err error) {
 
         decryptBuf := c.readBuf[TOKEN_SIZE:TOKEN_SIZE+TOKEN_SIZE]
         c.headerCipher.decrypt(decryptBuf, buf)
-        token:= string(decryptBuf[:bytes.IndexByte(decryptBuf, 0)])
+        var token string
+        {
+            i := bytes.IndexByte(decryptBuf, 0)
+            if i != -1 {
+                token = string(decryptBuf[:i])
+            } else {
+                token = string(decryptBuf)
+            }
+        }
 
         c.headerCipher = nil
 
@@ -169,7 +177,7 @@ func (c *Conn) HandShake() (err error) {
             return
         }
 
-        c.initBodyCipher(c.serverEncryptConfig.GetEncryptMethod(), tokenSecret)
+        err = c.initBodyCipher(c.serverEncryptConfig.GetEncryptMethod(), tokenSecret)
 
         return
     } else if c.clientEncryptConfig != nil {
@@ -186,21 +194,21 @@ func (c *Conn) HandShake() (err error) {
         if iv != nil {
             copy(cipherData, iv)
         }
-        var tokenBytes = [16]byte{}
-        copy(tokenBytes[0:], []byte(token))
+        var tokenBytes = make([]byte, TOKEN_SIZE)
+        copy(tokenBytes, []byte(token))
         // Padding the token to TOKEN_SIZE
         if len(token) < TOKEN_SIZE {
             paddingLen := TOKEN_SIZE - len(token)
             copy(tokenBytes[len(token):], bytes.Repeat([]byte{byte(0)}, paddingLen))
         }
 
-        c.headerCipher.encrypt(cipherData[len(iv):], tokenBytes[:])
+        c.headerCipher.encrypt(cipherData[len(iv):], tokenBytes)
         _, err = c.Conn.Write(cipherData)
         if err != nil {
             return
         }
         c.headerCipher = nil
-        c.initBodyCipher(c.clientEncryptConfig.GetEncryptMethod(), tokenSecret)
+        err = c.initBodyCipher(c.clientEncryptConfig.GetEncryptMethod(), tokenSecret)
 
         return
     }
