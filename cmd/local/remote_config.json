@@ -1,0 +1,12 @@
+{
+  "local_addr": "127.0.0.1:2080",
+  "servers": [
+    {
+      "address": "127.0.0.1:8388",
+      "method": "aes-256-cfb",
+      "password": "shared_secret",
+      "token": "Hk8wRTsxcuRwEroh",
+      "token_secret": "AqTxaXguQmvbzsrw4UKZRjYCcGloM0Ik"
+    }
+  ]
+}

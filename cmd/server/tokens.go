@@ -4,8 +4,6 @@ import (
     "errors"
     "encoding/json"
     log "github.com/Sirupsen/logrus"
-    ss "bitbucket.org/qiuyuzhou/shadowsocks/core"
-    "fmt"
 )
 
 var (
@@ -15,41 +13,6 @@ var (
 type TokensPlugin interface {
     Init(rawJson json.RawMessage) (error)
     GetTokenSecret(token string) (string, error)
-}
-
-type SimpleTokensPlugin struct {
-    Tokens map[string]string    `json:"tokens"`
-}
-
-func (self *SimpleTokensPlugin) Init(rawJson json.RawMessage) (error) {
-    if err := json.Unmarshal(rawJson, &self.Tokens); err != nil {
-        return err
-    }
-
-    valid := true
-    for key, _:= range self.Tokens {
-        if len(key) > ss.TOKEN_SIZE {
-            log.WithField("token", key).Errorf("Token lenght must be less equal %v", ss.TOKEN_SIZE)
-            valid = false
-        }
-    }
-    if !valid {
-        return errors.New(fmt.Sprintf("Token lenght must be less equal %v", ss.TOKEN_SIZE))
-    }
-
-    return nil
-}
-
-func (self *SimpleTokensPlugin) GetTokenSecret(token string) (string, error) {
-    if self.Tokens == nil {
-        return "", errNotFoundToken
-    }
-
-    val, ok := self.Tokens[token]
-    if !ok {
-        return "", errNotFoundToken
-    }
-    return val, nil
 }
 
 type TokensManager struct {
@@ -65,8 +28,11 @@ func NewTokensManager(config *Config) (*TokensManager, error) {
         switch key {
             case "simple":
                 plugin = &SimpleTokensPlugin{}
+            case "remote":
+                plugin = &RemoteTokensPlugin{}
             default:
                 log.WithField("plugin", key).Warn("Unkown tokens plugin")
+                continue
         }
         if err := plugin.Init(value); err != nil {
             return nil, err
@@ -82,6 +48,7 @@ func (self *TokensManager) GetTokenSecret(token string) (string, error) {
     for _, plugin := range self.plugins {
         s, err := plugin.GetTokenSecret(token)
         if err == nil {
+//            log.Debug(token, s)
             return s, nil
         }
     }

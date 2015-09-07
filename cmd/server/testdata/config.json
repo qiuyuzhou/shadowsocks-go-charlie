@@ -5,6 +5,9 @@
   "tokens_plugins": {
     "simple": {
       "charlie": "0123456789abcdefg!"
+    },
+    "remote": {
+      "remote_server_url": "http://127.0.0.1:8000/shadowsockspro/api/tokens/%v/"
     }
   },
   "timeout": 300
